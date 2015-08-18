@@ -1,0 +1,139 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Linuxap-eh-cvs] linuxAP-eh/Mk uClibc-old.mk,NONE,1.1.2.1
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/linuxap-eh-cvs/2004-December/index.html" >
+   <LINK REL="made" HREF="mailto:linuxap-eh-cvs%40lists.berlios.de?Subject=Re%3A%20%5BLinuxap-eh-cvs%5D%20linuxAP-eh/Mk%20uClibc-old.mk%2CNONE%2C1.1.2.1&In-Reply-To=%3C200412051210.iB5CArB07653%40bat.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000008.html">
+   <LINK REL="Next"  HREF="000010.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Linuxap-eh-cvs] linuxAP-eh/Mk uClibc-old.mk,NONE,1.1.2.1</H1>
+    <B>xscript</B> 
+    <A HREF="mailto:linuxap-eh-cvs%40lists.berlios.de?Subject=Re%3A%20%5BLinuxap-eh-cvs%5D%20linuxAP-eh/Mk%20uClibc-old.mk%2CNONE%2C1.1.2.1&In-Reply-To=%3C200412051210.iB5CArB07653%40bat.berlios.de%3E"
+       TITLE="[Linuxap-eh-cvs] linuxAP-eh/Mk uClibc-old.mk,NONE,1.1.2.1">nobody at sheep.berlios.de
+       </A><BR>
+    <I>Sun Dec  5 13:10:53 CET 2004</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000008.html">[Linuxap-eh-cvs] linuxAP-eh/Mk uClibc.mk,1.4,NONE
+</A></li>
+        <LI>Next message: <A HREF="000010.html">[Linuxap-eh-cvs] linuxAP-eh/Mk uClibc.mk,1.4.2.1,1.4.2.2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#9">[ date ]</a>
+              <a href="thread.html#9">[ thread ]</a>
+              <a href="subject.html#9">[ subject ]</a>
+              <a href="author.html#9">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Update of /cvsroot/linuxap-eh/linuxAP-eh/Mk
+In directory sheep:/tmp/cvs-serv30831
+
+Added Files:
+      Tag: TESTING
+	uClibc-old.mk 
+Log Message:
+Added uClibc 0.9.26
+
+
+--- NEW FILE: uClibc-old.mk ---
+#----------------------------------------------------------------------
+# uClibc Section
+# This is the *FIRST* item of business after the
+# kernel is extracted &amp;&amp; Configured
+#----------------------------------------------------------------------
+# Definitions
+LIBS=ld-uClibc.so* libc.so* libresolv.so* libdl.so* libcrypt.so* \
+        ld-uClibc-$(UCLIBC_VERSION).so \
+        libuClibc-$(UCLIBC_VERSION).so \
+        libresolv-$(UCLIBC_VERSION).so \
+        libdl-$(UCLIBC_VERSION).so \
+        libcrypt-$(UCLIBC_VERSION).so
+
+# Must happen first
+#SUBDIR_CONFIG += uClibc-config
+#SUBDIR_BUILD += uClibc-build
+#SUBDIR_INSTALL += uClibc-install
+SUBDIR_CLEAN += uClibc-clean
+SUBDIR_DISTCLEAN += uClibc-distclean
+
+uClibc-patch:
+	@echo -e &quot;\nExtracting and patching uClibc version $(UCLIBC_VERSION).&quot;
+	@scripts/util_config uClibc $(UCLIBC_VERSION) $(ARCHIVE_DIR) \
+		&gt; /tmp/uClibc-patch
+	@mv /tmp/uClibc-patch ./
+
+uClibc-config: uClibc-patch
+	@echo -e &quot;\nConfiguring uClibc version $(UCLIBC_VERSION).&quot;
+	@touch /tmp/uClibc-config
+ifneq ($(UCLIBC_VERSION),0.9.12)
+	@$(MAKE) -C uClibc oldconfig &gt;&gt; /tmp/uClibc-config
+endif
+	@mv /tmp/uClibc-config .
+
+uClibc-build: uClibc-config
+	@echo -e &quot;\nBuilding uClibc version $(UCLIBC_VERSION) Please be patient ...&quot;
+	@$(MAKE) -C uClibc \
+		KERNEL_SOURCE=$(KERNEL_DIR) \
+		&gt; /tmp/uClibc-build 2&gt;&amp;1
+	@mv /tmp/uClibc-build ./
+
+uClibc-install: uClibc-build
+	@echo -e &quot;\nInstalling uClibc version $(UCLIBC_VERSION) ...&quot;
+	@rm -rf /usr/i386-linux-uclibc
+	@rm -rf /usr/i386-linux-uclibc-$(UCLIBC_VERSION)
+	@mkdir -p /usr/i386-linux-uclibc-$(UCLIBC_VERSION)
+	@cd /usr &amp;&amp; ln -s i386-linux-uclibc-$(UCLIBC_VERSION) \
+		./i386-linux-uclibc
+	@$(MAKE) -C uClibc PREFIX=/ install \
+		&gt; /tmp/uClibc-install 2&gt;&amp;1
+	@mv /tmp/uClibc-install ./
+
+uClibc-clean:
+	@echo -e &quot;\nCleaning uClibc version $(UCLIBC_VERSION) ...&quot;
+	@rm -f uClibc-install
+	@rm -f uClibc-build
+	@rm -Rf /usr/i386-linux-uclibc i386-linux-uclibc-$(UCLIBC_VERSION)
+	@-$(MAKE) -C uClibc clean &gt; /dev/null 2&gt;&amp;1
+
+uClibc-distclean:
+	@echo -e &quot;\nPurging uClibc version $(UCLIBC_VERSION) ...&quot;
+	@rm -f uClibc-install
+	@rm -f uClibc-build
+	@rm -f uClibc-config uClibc-patch
+	@rm -rf uClibc-$(UCLIBC_VERSION) uClibc
+	@rm -Rf /usr/i386-linux-uclibc /usr/i386-linux-uclibc-$(UCLIBC_VERSION)
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000008.html">[Linuxap-eh-cvs] linuxAP-eh/Mk uClibc.mk,1.4,NONE
+</A></li>
+	<LI>Next message: <A HREF="000010.html">[Linuxap-eh-cvs] linuxAP-eh/Mk uClibc.mk,1.4.2.1,1.4.2.2
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#9">[ date ]</a>
+              <a href="thread.html#9">[ thread ]</a>
+              <a href="subject.html#9">[ subject ]</a>
+              <a href="author.html#9">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/linuxap-eh-cvs">More information about the Linuxap-eh-cvs
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,91 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Linuxap-eh-cvs] linuxAP-eh/patches/toolchain gcc-3.3.x,NONE,1.1.2.1
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/linuxap-eh-cvs/2004-December/index.html" >
+   <LINK REL="made" HREF="mailto:linuxap-eh-cvs%40lists.berlios.de?Subject=Re%3A%20%5BLinuxap-eh-cvs%5D%20linuxAP-eh/patches/toolchain%20gcc-3.3.x%2CNONE%2C1.1.2.1&In-Reply-To=%3C200412051159.iB5BwxB07467%40bat.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000005.html">
+   <LINK REL="Next"  HREF="000007.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Linuxap-eh-cvs] linuxAP-eh/patches/toolchain gcc-3.3.x,NONE,1.1.2.1</H1>
+    <B>xscript</B> 
+    <A HREF="mailto:linuxap-eh-cvs%40lists.berlios.de?Subject=Re%3A%20%5BLinuxap-eh-cvs%5D%20linuxAP-eh/patches/toolchain%20gcc-3.3.x%2CNONE%2C1.1.2.1&In-Reply-To=%3C200412051159.iB5BwxB07467%40bat.berlios.de%3E"
+       TITLE="[Linuxap-eh-cvs] linuxAP-eh/patches/toolchain gcc-3.3.x,NONE,1.1.2.1">nobody at sheep.berlios.de
+       </A><BR>
+    <I>Sun Dec  5 12:59:00 CET 2004</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000005.html">[Linuxap-eh-cvs] linuxAP-eh/patches/toolchain - New directory
+</A></li>
+        <LI>Next message: <A HREF="000007.html">[Linuxap-eh-cvs] linuxAP-eh ChangeLog.eh,1.44,1.44.2.1
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6">[ date ]</a>
+              <a href="thread.html#6">[ thread ]</a>
+              <a href="subject.html#6">[ subject ]</a>
+              <a href="author.html#6">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Update of /cvsroot/linuxap-eh/linuxAP-eh/patches/toolchain
+In directory sheep:/tmp/cvs-serv30502
+
+Added Files:
+      Tag: TESTING
+	gcc-3.3.x 
+Log Message:
+Added uClibc's new toolchain support
+
+
+--- NEW FILE: gcc-3.3.x ---
+diff -Nur toolchain/gcc-3.3.x/Makefile toolchain-new/gcc-3.3.x/Makefile
+--- toolchain/gcc-3.3.x/Makefile	2004-09-21 23:51:02.000000000 +0200
++++ toolchain-new/gcc-3.3.x/Makefile	2004-09-21 23:51:36.000000000 +0200
+@@ -150,11 +150,11 @@
+ BUILD_DIR=$(BASE_DIR)/toolchain_$(ARCH)$(ARCH_FPU_SUFFIX)
+ STAGING_DIR=$(BUILD_DIR)
+ TOOL_BUILD_DIR=$(BASE_DIR)/toolchain_build_$(ARCH)$(ARCH_FPU_SUFFIX)
+-TARGET_PATH=$(STAGING_DIR)/bin:/bin:/sbin:/usr/bin:/usr/sbin
++TARGET_PATH=$(MASQ_PATH):$(STAGING_DIR)/bin:/bin:/sbin:/usr/bin:/usr/sbin
+ REAL_GNU_TARGET_NAME=$(OPTIMIZE_FOR_CPU)-linux-uclibc
+ GNU_TARGET_NAME=$(OPTIMIZE_FOR_CPU)-linux
+-KERNEL_CROSS=$(STAGING_DIR)/bin/$(OPTIMIZE_FOR_CPU)-linux-uclibc-
+-TARGET_CROSS=$(STAGING_DIR)/bin/$(OPTIMIZE_FOR_CPU)-linux-uclibc-
++KERNEL_CROSS=$(OPTIMIZE_FOR_CPU)-linux-uclibc-
++TARGET_CROSS=$(OPTIMIZE_FOR_CPU)-linux-uclibc-
+ TARGET_CC=$(TARGET_CROSS)gcc
+ STRIP=$(TARGET_CROSS)strip --remove-section=.comment --remove-section=.note
+ 
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000005.html">[Linuxap-eh-cvs] linuxAP-eh/patches/toolchain - New directory
+</A></li>
+	<LI>Next message: <A HREF="000007.html">[Linuxap-eh-cvs] linuxAP-eh ChangeLog.eh,1.44,1.44.2.1
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#6">[ date ]</a>
+              <a href="thread.html#6">[ thread ]</a>
+              <a href="subject.html#6">[ subject ]</a>
+              <a href="author.html#6">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/linuxap-eh-cvs">More information about the Linuxap-eh-cvs
+mailing list</a><br>
+</body></html>

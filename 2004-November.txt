@@ -1,0 +1,126 @@
+From xscript at gmx.net  Tue Nov  9 21:05:07 2004
+From: xscript at gmx.net (Lluis)
+Date: Tue, 9 Nov 2004 21:05:07 +0100
+Subject: [Linuxap-eh-cvs] a
+Message-ID: <20041109200506.GA13032@dante.xlab.taz>
+
+-- 
+ "And it's much the same thing with knowledge, for whenever you learn
+ something new, the whole world becomes that much richer."
+ -- The Princess of Pure Reason, as told by Norton Juster in The Phantom
+ Tollbooth
+
+
+From nobody at sheep.berlios.de  Wed Nov 24 09:45:54 2004
+From: nobody at sheep.berlios.de (wlan)
+Date: Wed, 24 Nov 2004 09:45:54 +0100
+Subject: [Linuxap-eh-cvs] linuxAP-eh/scripts get_tarfiles,NONE,1.1
+Message-ID: <200411240845.iAO8jsB14996@bat.berlios.de>
+
+Update of /cvsroot/linuxap-eh/linuxAP-eh/scripts
+In directory sheep:/tmp/cvs-serv23670
+
+Added Files:
+	get_tarfiles 
+Log Message:
+Allow to retrieve automatically source files from website
+
+
+--- NEW FILE: get_tarfiles ---
+#!/bin/sh
+# get_tarfiles
+# Retrieve tarfiles 
+# Version: 0.1
+# Author: wlan at zaragozawireless.org
+
+TOP_DIR="/usr/src/linuxAP-eh"
+WGET_OPTIONS="-c --directory-prefix=$TOP_DIR/tarfiles"
+
+# LinuxAP-eh-2004-02-21 
+WIRELESS_TOOLS_URL="http://www.hpl.hp.com/personal/Jean_Tourrilhes/Linux/wireless_tools.25.tar.gz"
+HOSTAP_DRIVER_URL="http://hostap.epitest.fi/releases/hostap-driver-0.1.3.tar.gz"
+HOSTAP_UTILS_URL="http://hostap.epitest.fi/releases/hostap-utils-0.1.3.tar.gz"
+HOSTAPD_URL="http://hostap.epitest.fi/releases/hostapd-0.1.3.tar.gz"
+LINUX_KERNEL_URL="http://kernel.org/pub/linux/kernel/v2.4/linux-2.4.20.tar.bz2"
+BUSYBOX_URL="http://www.busybox.net/downloads/legacy/busybox-1.00-pre7.tar.bz2"
+SQUASHFS_URL="http://belnet.dl.sourceforge.net/sourceforge/squashfs/squashfs1.3r2.tar.gz"
+UCLIBC_URL="http://www.uclibc.org/downloads/old-releases/uClibc-0.9.21.tar.bz2"
+UDHCP_URL="http://udhcp.busybox.net/source/udhcp-0.9.8.tar.gz"
+TINYLOGIN_URL="http://tinylogin.busybox.net/downloads/tinylogin-1.4.tar.bz2"
+UMSDOS_URL="http://linux.voyager.hr/umsdos/files/umsdos_progs-1.32.tgz"
+SYSINIT_URL="ftp://ftp.cistron.nl/pub/people/miquels/sysvinit/sysvinit-2.83.tar.gz"
+SYSLINUX_URL="http://www.kernel.org/pub/linux/utils/boot/syslinux/syslinux-2.00.tar.bz2"
+PSMISC_URL="http://belnet.dl.sourceforge.net/sourceforge/psmisc/psmisc-21.2.tar.gz"
+GLIBC_URL="http://ftp.gnu.org/gnu/glibc/glibc-2.2.5.tar.gz"
+PCMCIA_CS_URL="http://belnet.dl.sourceforge.net/sourceforge/pcmcia-cs/pcmcia-cs-3.2.3.tar.gz"
+VTUN_URL="http://prdownloads.sourceforge.net/vtun/vtun-2.6.tar.gz"
+OPENVPN_URL="http://prdownloads.sourceforge.net/openvpn/openvpn-1.4.3.tar.gz"
+CKERMIT_URL="ftp://kermit.columbia.edu/kermit/archives/cku206.tar.gz"
+CIPE_URL="http://sites.inka.de/sites/bigred/sw/cipe-1.5.4.tar.gz"
+KERNEL_AODV_URL="http://www.antd.nist.gov/wctg/aodv_kernel/kernel-aodv_v2.1.tgz"
+IPTABLES_URL="http://www.netfilter.org/files/iptables-1.2.7a.tar.bz2"
+BRIDGE_UTILS_URL="http://belnet.dl.sourceforge.net/sourceforge/bridge/bridge-utils-0.9.6.tar.gz"
+#Which version?
+IPROUTE2_URL="http://developer.osdl.org/dev/iproute2/download/iproute2-2.2.4-ss000225.tar.gz"
+
+wget $WGET_OPTIONS $WIRELESS_TOOLS_URL
+wget $WGET_OPTIONS $HOSTAP_DRIVER_URL
+wget $WGET_OPTIONS $HOSTAP_UTILS_URL 
+wget $WGET_OPTIONS $HOSTAPD_URL
+wget $WGET_OPTIONS $LINUX_KERNEL_URL
+wget $WGET_OPTIONS $BUSYBOX_URL
+wget $WGET_OPTIONS $SQUASHFS_URL
+wget $WGET_OPTIONS $UCLIBC_URL
+wget $WGET_OPTIONS $UDHCP_URL
+wget $WGET_OPTIONS $TINYLOGIN_URL
+wget $WGET_OPTIONS $UMSDOS_URL
+wget $WGET_OPTIONS $SYSINIT_URL
+wget $WGET_OPTIONS $SYSLINUX_URL
+wget $WGET_OPTIONS $PSMISC_URL
+wget $WGET_OPTIONS $GLIBC_URL
+wget $WGET_OPTIONS $PCMCIA_CS_URL
+wget $WGET_OPTIONS $VTUN_URL
+wget $WGET_OPTIONS $OPENVPN_URL
+wget $WGET_OPTIONS $CKERMIT_URL 
+wget $WGET_OPTIONS $CIPE_URL
+wget $WGET_OPTIONS $KERNEL_AODV_URL
+wget $WGET_OPTIONS $IPTABLES_URL
+wget $WGET_OPTIONS $BRIDGE_UTILS_URL
+wget $WGET_OPTIONS $IPROUTE_URL
+
+
+
+From nobody at sheep.berlios.de  Wed Nov 24 09:49:15 2004
+From: nobody at sheep.berlios.de (wlan)
+Date: Wed, 24 Nov 2004 09:49:15 +0100
+Subject: [Linuxap-eh-cvs] linuxAP-eh ChangeLog.eh,1.43,1.44
+Message-ID: <200411240849.iAO8nFB15070@bat.berlios.de>
+
+Update of /cvsroot/linuxap-eh/linuxAP-eh
+In directory sheep:/tmp/cvs-serv23785
+
+Modified Files:
+	ChangeLog.eh 
+Log Message:
+Changelog modied. Added get_tarfiles script comment
+
+
+Index: ChangeLog.eh
+===================================================================
+RCS file: /cvsroot/linuxap-eh/linuxAP-eh/ChangeLog.eh,v
+retrieving revision 1.43
+retrieving revision 1.44
+diff -C2 -d -r1.43 -r1.44
+*** ChangeLog.eh	7 Nov 2004 21:20:13 -0000	1.43
+--- ChangeLog.eh	24 Nov 2004 08:49:13 -0000	1.44
+***************
+*** 1,2 ****
+--- 1,5 ----
++ 24-11-2004
++   * Added script to retrieve automatically source code files, get_tarfiles. wlan
++ 
+  07-11-2004
+    * Added distcc support
+
+
+

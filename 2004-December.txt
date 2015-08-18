@@ -1,0 +1,1297 @@
+From nobody at sheep.berlios.de  Wed Dec  1 00:59:58 2004
+From: nobody at sheep.berlios.de (xscript)
+Date: Wed, 1 Dec 2004 00:59:58 +0100
+Subject: [Linuxap-eh-cvs] linuxAP-eh/Mk toolchain.mk,NONE,1.1.2.1
+Message-ID: <200411302359.iAUNxwB02194@bat.berlios.de>
+
+Update of /cvsroot/linuxap-eh/linuxAP-eh/Mk
+In directory sheep:/tmp/cvs-serv10144
+
+Added Files:
+      Tag: TESTING
+	toolchain.mk 
+Log Message:
+Added uClibc's new toolchain support
+
+--- NEW FILE: toolchain.mk ---
+#----------------------------------------------------------------------
+# uClibc toolchain
+#----------------------------------------------------------------------
+
+# Must happen first
+#SUBDIR_CONFIG += toolchain-config
+#SUBDIR_BUILD += toolchain-build
+#SUBDIR_INSTALL += toolchain-install
+SUBDIR_CLEAN += toolchain-clean
+SUBDIR_DISTCLEAN += toolchain-distclean
+
+ifeq ($(CONFIG_TOOLCHAIN_UCLIBC_SNAPSHOT),y)
+OPTS_TOOLCHAIN=USE_UCLIBC_SNAPSHOT=true
+else
+OPTS_TOOLCHAIN=USE_UCLIBC_SNAPSHOT=false UCLIBC_SOURCE=uClibc-$(UCLIBC_VERSION).tar.bz2 UCLIBC_DIR=toolchain_build_i386/uClibc-$(UCLIBC_VERSION) 
+endif
+ifneq ($(shell ./scripts/cmp_ver $(KERNEL_VERSION) 2.6.0),1)
+OPTS_TOOLCHAIN+=LINUX_SITE=http://ep09.pld-linux.org/~mmazur/linux-libc-headers/ LINUX_SOURCE=linux-libc-headers-$(KERNEL_VERSION).0.tar.bz2 LINUX_UNPACK_DIR=toolchain_build_i386/linux-libc-headers-$(KERNEL_VERSION).0
+endif
+
+toolchain-update:
+	@echo -e "\nUpdating uClibc toolchain from CVS ..."
+	@(cd toolchain/gcc-$(TOOLCHAIN_GCC_VERSION) && cvs -q up)
+
+toolchain/gcc-$(TOOLCHAIN_GCC_VERSION):
+	@echo -e "\nDownloading uClibc toolchain ($(TOOLCHAIN_GCC_VERSION)) from CVS ..."
+	@echo "(press ENTER on password prompt)"
+	@cvs -q -d:pserver:anonymous at uclibc.org:/var/cvs login
+	@cvs -z3 -q -d:pserver:anonymous at uclibc.org:/var/cvs co -P toolchain/gcc-$(TOOLCHAIN_GCC_VERSION) \
+		> /tmp/toolchain-download
+	@(cd toolchain ; patch -p 1 < $(TOPDIR)/patches/toolchain/gcc-$(TOOLCHAIN_GCC_VERSION)) \
+		>> /tmp/toolchain-download 2>&1
+	@mv /tmp/toolchain-download .
+
+toolchain-download: toolchain/gcc-$(TOOLCHAIN_GCC_VERSION)
+	
+toolchain-config: toolchain-download
+	@echo -e "\nConfiguring and patching uClibc toolchain"
+	@(cd /tmp ; patch -p 1 < $(TOPDIR)/$(AP_BUILD)/patches/uClibc/$(UCLIBC_VERSION)) \
+		> /tmp/toolchain-config 2>&1
+	@mv -f /tmp/.config toolchain/gcc-$(TOOLCHAIN_GCC_VERSION)/sources/uClibc.config \
+		>> /tmp/toolchain-config 2>&1
+	@ln -sf $(TOPDIR)/tarfiles toolchain/gcc-$(TOOLCHAIN_GCC_VERSION)/sources/dl \
+		>> /tmp/toolchain-config 2>&1
+	@mv /tmp/toolchain-config .
+
+toolchain-build: toolchain-config
+	@echo -e "\nBuilding uClibc toolchain ($(TOOLCHAIN_GCC_VERSION)). Please be patient ..."
+ifeq ($(UCLIBC_VERSION),snapshot)
+	@echo "  Look toolchain build output to check if new options for uClibc are available"
+	@echo "  (tail -f /tmp/toolchain-build)"
+endif
+	@$(MAKE_NOJ) -C toolchain/gcc-$(TOOLCHAIN_GCC_VERSION) \
+		$(OPTS_TOOLCHAIN) \
+		MASQ_PATH=$(MASQ_PATH) \
+		BUILD_WITH_LARGEFILE=false \
+		GCC_USE_SJLJ_EXCEPTIONS="" \
+		MULTILIB="" \
+		INSTALL_LIBSTDCPP=false \
+		> /tmp/toolchain-build 2>&1
+	@mv /tmp/toolchain-build .
+
+toolchain-install: toolchain-build
+	@echo -e "\nInstalling uClibc toolchain ..."
+	@touch /tmp/toolchain-install
+ifeq ($(CONFIG_TOOLCHAIN_SAVE),y)
+	@echo "Saving cross compiling environment"
+	@mv $(CROSSDIR) $(CROSSDIR)-bak > /tmp/toolchain-install 2>&1
+	@$(MAKE) -C toolchain/gcc-$(TOOLCHAIN_GCC_VERSION) distclean >> /tmp/toolchain-install 2>&1
+	@echo "Restoring cross compiling environment"
+	@mv $(CROSSDIR)-bak $(CROSSDIR) >> /tmp/toolchain-install 2>&1
+	@mkdir -p toolchain/gcc-$(TOOLCHAIN_GCC_VERSION)/toolchain_build_i386/ccache-2.3
+endif
+	@mv /tmp/toolchain-install .
+	
+toolchain-clean:
+	@echo -e "\nCleaning uClibc toolchain ..."
+	@rm -f toolchain-install
+	@rm -f toolchain-build
+	@-$(MAKE) -C toolchain/gcc-$(TOOLCHAIN_GCC_VERSION) clean > /dev/null 2>&1
+
+toolchain-distclean:
+	@echo -e "\nPurging uClibc toolchain ..."
+	@rm -f toolchain-install
+	@rm -f toolchain-build
+	@rm -f toolchain-config toolchain-download
+	@rm -rf toolchain
+
+
+
+
+From nobody at sheep.berlios.de  Wed Dec  1 01:35:52 2004
+From: nobody at sheep.berlios.de (xscript)
+Date: Wed, 1 Dec 2004 01:35:52 +0100
+Subject: [Linuxap-eh-cvs] linuxAP-eh config.in,1.30,1.30.2.1 Makefile,1.12,1.12.2.1
+Message-ID: <200412010035.iB10ZqB02815@bat.berlios.de>
+
+Update of /cvsroot/linuxap-eh/linuxAP-eh
+In directory sheep:/tmp/cvs-serv30548
+
+Modified Files:
+      Tag: TESTING
+	config.in Makefile 
+Log Message:
+Added uClibc's new toolchain support
+
+Index: config.in
+===================================================================
+RCS file: /cvsroot/linuxap-eh/linuxAP-eh/config.in,v
+retrieving revision 1.30
+retrieving revision 1.30.2.1
+diff -C2 -d -r1.30 -r1.30.2.1
+*** config.in	7 Nov 2004 21:20:13 -0000	1.30
+--- config.in	1 Dec 2004 00:35:50 -0000	1.30.2.1
+***************
+*** 64,67 ****
+--- 64,72 ----
+     define_bool CONFIG_NOTUNNELING y
+  fi
++ if [ "$CONFIG_TOOLCHAIN_GCC_295" = "" -a \
++     "$CONFIG_TOOLCHAIN_GCC_33x" = "" -a \
++     "$CONFIG_TOOLCHAIN_GCC_34x" = "" ]; then
++    define_bool CONFIG_TOOLCHAIN_GCC_33x y
++ fi
+  if [ "$CONFIG_WLRL_2" = "" -a \
+      "$CONFIG_WLRL_3" = "" -a \
+***************
+*** 241,244 ****
+--- 246,257 ----
+  
+  # Others
++ if [ "$CONFIG_TOOLCHAIN_GCC_295" = "y" ]; then
++    define_ustring TOOLCHAIN_GCC_VERSION "2.95"
++ elif [ "$CONFIG_TOOLCHAIN_GCC_33x" = "y" ]; then
++    define_ustring TOOLCHAIN_GCC_VERSION "3.3.x"
++ else
++    define_ustring TOOLCHAIN_GCC_VERSION "3.4.x"
++ fi
++ 
+  if [ "$CONFIG_WLRL_2" = "y" ]; then
+     define_int CONFIG_WLRL "2"
+
+Index: Makefile
+===================================================================
+RCS file: /cvsroot/linuxap-eh/linuxAP-eh/Makefile,v
+retrieving revision 1.12
+retrieving revision 1.12.2.1
+diff -C2 -d -r1.12 -r1.12.2.1
+*** Makefile	7 Nov 2004 21:20:13 -0000	1.12
+--- Makefile	1 Dec 2004 00:35:50 -0000	1.12.2.1
+***************
+*** 214,217 ****
+--- 214,218 ----
+  include Mk/sysvinit.mk
+  include Mk/tinylogin.mk
++ include Mk/toolchain.mk
+  include Mk/uClibc.mk
+  include Mk/udhcp.mk
+***************
+*** 280,283 ****
+--- 281,285 ----
+  ifeq ($(CONFIG_UCLIBC),y)
+  include Mk/uClibc.mk
++ include Mk/toolchain.mk
+  endif
+  ifeq ($(CONFIG_UDHCP),y)
+
+
+
+From nobody at sheep.berlios.de  Sun Dec  5 12:58:29 2004
+From: nobody at sheep.berlios.de (xscript)
+Date: Sun, 5 Dec 2004 12:58:29 +0100
+Subject: [Linuxap-eh-cvs] linuxAP-eh/patches/toolchain - New directory
+Message-ID: <200412051158.iB5BwTB07460@bat.berlios.de>
+
+Update of /cvsroot/linuxap-eh/linuxAP-eh/patches/toolchain
+In directory sheep:/tmp/cvs-serv30475/toolchain
+
+Log Message:
+Directory /cvsroot/linuxap-eh/linuxAP-eh/patches/toolchain added to the repository
+--> Using per-directory sticky tag `TESTING'
+
+
+
+
+From nobody at sheep.berlios.de  Sun Dec  5 12:59:00 2004
+From: nobody at sheep.berlios.de (xscript)
+Date: Sun, 5 Dec 2004 12:59:00 +0100
+Subject: [Linuxap-eh-cvs] linuxAP-eh/patches/toolchain gcc-3.3.x,NONE,1.1.2.1
+Message-ID: <200412051159.iB5BwxB07467@bat.berlios.de>
+
+Update of /cvsroot/linuxap-eh/linuxAP-eh/patches/toolchain
+In directory sheep:/tmp/cvs-serv30502
+
+Added Files:
+      Tag: TESTING
+	gcc-3.3.x 
+Log Message:
+Added uClibc's new toolchain support
+
+
+--- NEW FILE: gcc-3.3.x ---
+diff -Nur toolchain/gcc-3.3.x/Makefile toolchain-new/gcc-3.3.x/Makefile
+--- toolchain/gcc-3.3.x/Makefile	2004-09-21 23:51:02.000000000 +0200
++++ toolchain-new/gcc-3.3.x/Makefile	2004-09-21 23:51:36.000000000 +0200
+@@ -150,11 +150,11 @@
+ BUILD_DIR=$(BASE_DIR)/toolchain_$(ARCH)$(ARCH_FPU_SUFFIX)
+ STAGING_DIR=$(BUILD_DIR)
+ TOOL_BUILD_DIR=$(BASE_DIR)/toolchain_build_$(ARCH)$(ARCH_FPU_SUFFIX)
+-TARGET_PATH=$(STAGING_DIR)/bin:/bin:/sbin:/usr/bin:/usr/sbin
++TARGET_PATH=$(MASQ_PATH):$(STAGING_DIR)/bin:/bin:/sbin:/usr/bin:/usr/sbin
+ REAL_GNU_TARGET_NAME=$(OPTIMIZE_FOR_CPU)-linux-uclibc
+ GNU_TARGET_NAME=$(OPTIMIZE_FOR_CPU)-linux
+-KERNEL_CROSS=$(STAGING_DIR)/bin/$(OPTIMIZE_FOR_CPU)-linux-uclibc-
+-TARGET_CROSS=$(STAGING_DIR)/bin/$(OPTIMIZE_FOR_CPU)-linux-uclibc-
++KERNEL_CROSS=$(OPTIMIZE_FOR_CPU)-linux-uclibc-
++TARGET_CROSS=$(OPTIMIZE_FOR_CPU)-linux-uclibc-
+ TARGET_CC=$(TARGET_CROSS)gcc
+ STRIP=$(TARGET_CROSS)strip --remove-section=.comment --remove-section=.note
+ 
+
+
+
+From nobody at sheep.berlios.de  Sun Dec  5 13:02:43 2004
+From: nobody at sheep.berlios.de (xscript)
+Date: Sun, 5 Dec 2004 13:02:43 +0100
+Subject: [Linuxap-eh-cvs] linuxAP-eh ChangeLog.eh,1.44,1.44.2.1
+Message-ID: <200412051202.iB5C2hB07553@bat.berlios.de>
+
+Update of /cvsroot/linuxap-eh/linuxAP-eh
+In directory sheep:/tmp/cvs-serv30616
+
+Modified Files:
+      Tag: TESTING
+	ChangeLog.eh 
+Log Message:
+Added uClibc's new toolchain support
+
+
+Index: ChangeLog.eh
+===================================================================
+RCS file: /cvsroot/linuxap-eh/linuxAP-eh/ChangeLog.eh,v
+retrieving revision 1.44
+retrieving revision 1.44.2.1
+diff -C2 -d -r1.44 -r1.44.2.1
+*** ChangeLog.eh	24 Nov 2004 08:49:13 -0000	1.44
+--- ChangeLog.eh	5 Dec 2004 12:02:40 -0000	1.44.2.1
+***************
+*** 1,2 ****
+--- 1,5 ----
++ 05-12-2004
++   * Added uClibc's new toolchain support
++ 
+  24-11-2004
+    * Added script to retrieve automatically source code files, get_tarfiles. wlan
+
+
+
+From nobody at sheep.berlios.de  Sun Dec  5 13:10:35 2004
+From: nobody at sheep.berlios.de (xscript)
+Date: Sun, 5 Dec 2004 13:10:35 +0100
+Subject: [Linuxap-eh-cvs] linuxAP-eh/Mk uClibc.mk,1.4,NONE
+Message-ID: <200412051210.iB5CAZB07642@bat.berlios.de>
+
+Update of /cvsroot/linuxap-eh/linuxAP-eh/Mk
+In directory sheep:/tmp/cvs-serv30801
+
+Removed Files:
+      Tag: TESTING
+	uClibc.mk 
+Log Message:
+Added uClibc 0.9.26
+
+
+--- uClibc.mk DELETED ---
+
+
+
+From nobody at sheep.berlios.de  Sun Dec  5 13:10:53 2004
+From: nobody at sheep.berlios.de (xscript)
+Date: Sun, 5 Dec 2004 13:10:53 +0100
+Subject: [Linuxap-eh-cvs] linuxAP-eh/Mk uClibc-old.mk,NONE,1.1.2.1
+Message-ID: <200412051210.iB5CArB07653@bat.berlios.de>
+
+Update of /cvsroot/linuxap-eh/linuxAP-eh/Mk
+In directory sheep:/tmp/cvs-serv30831
+
+Added Files:
+      Tag: TESTING
+	uClibc-old.mk 
+Log Message:
+Added uClibc 0.9.26
+
+
+--- NEW FILE: uClibc-old.mk ---
+#----------------------------------------------------------------------
+# uClibc Section
+# This is the *FIRST* item of business after the
+# kernel is extracted && Configured
+#----------------------------------------------------------------------
+# Definitions
+LIBS=ld-uClibc.so* libc.so* libresolv.so* libdl.so* libcrypt.so* \
+        ld-uClibc-$(UCLIBC_VERSION).so \
+        libuClibc-$(UCLIBC_VERSION).so \
+        libresolv-$(UCLIBC_VERSION).so \
+        libdl-$(UCLIBC_VERSION).so \
+        libcrypt-$(UCLIBC_VERSION).so
+
+# Must happen first
+#SUBDIR_CONFIG += uClibc-config
+#SUBDIR_BUILD += uClibc-build
+#SUBDIR_INSTALL += uClibc-install
+SUBDIR_CLEAN += uClibc-clean
+SUBDIR_DISTCLEAN += uClibc-distclean
+
+uClibc-patch:
+	@echo -e "\nExtracting and patching uClibc version $(UCLIBC_VERSION)."
+	@scripts/util_config uClibc $(UCLIBC_VERSION) $(ARCHIVE_DIR) \
+		> /tmp/uClibc-patch
+	@mv /tmp/uClibc-patch ./
+
+uClibc-config: uClibc-patch
+	@echo -e "\nConfiguring uClibc version $(UCLIBC_VERSION)."
+	@touch /tmp/uClibc-config
+ifneq ($(UCLIBC_VERSION),0.9.12)
+	@$(MAKE) -C uClibc oldconfig >> /tmp/uClibc-config
+endif
+	@mv /tmp/uClibc-config .
+
+uClibc-build: uClibc-config
+	@echo -e "\nBuilding uClibc version $(UCLIBC_VERSION) Please be patient ..."
+	@$(MAKE) -C uClibc \
+		KERNEL_SOURCE=$(KERNEL_DIR) \
+		> /tmp/uClibc-build 2>&1
+	@mv /tmp/uClibc-build ./
+
+uClibc-install: uClibc-build
+	@echo -e "\nInstalling uClibc version $(UCLIBC_VERSION) ..."
+	@rm -rf /usr/i386-linux-uclibc
+	@rm -rf /usr/i386-linux-uclibc-$(UCLIBC_VERSION)
+	@mkdir -p /usr/i386-linux-uclibc-$(UCLIBC_VERSION)
+	@cd /usr && ln -s i386-linux-uclibc-$(UCLIBC_VERSION) \
+		./i386-linux-uclibc
+	@$(MAKE) -C uClibc PREFIX=/ install \
+		> /tmp/uClibc-install 2>&1
+	@mv /tmp/uClibc-install ./
+
+uClibc-clean:
+	@echo -e "\nCleaning uClibc version $(UCLIBC_VERSION) ..."
+	@rm -f uClibc-install
+	@rm -f uClibc-build
+	@rm -Rf /usr/i386-linux-uclibc i386-linux-uclibc-$(UCLIBC_VERSION)
+	@-$(MAKE) -C uClibc clean > /dev/null 2>&1
+
+uClibc-distclean:
+	@echo -e "\nPurging uClibc version $(UCLIBC_VERSION) ..."
+	@rm -f uClibc-install
+	@rm -f uClibc-build
+	@rm -f uClibc-config uClibc-patch
+	@rm -rf uClibc-$(UCLIBC_VERSION) uClibc
+	@rm -Rf /usr/i386-linux-uclibc /usr/i386-linux-uclibc-$(UCLIBC_VERSION)
+
+
+
+From nobody at sheep.berlios.de  Sun Dec  5 13:11:23 2004
+From: nobody at sheep.berlios.de (xscript)
+Date: Sun, 5 Dec 2004 13:11:23 +0100
+Subject: [Linuxap-eh-cvs] linuxAP-eh/Mk uClibc.mk,1.4.2.1,1.4.2.2
+Message-ID: <200412051211.iB5CBNB07674@bat.berlios.de>
+
+Update of /cvsroot/linuxap-eh/linuxAP-eh/Mk
+In directory sheep:/tmp/cvs-serv30856
+
+Added Files:
+      Tag: TESTING
+	uClibc.mk 
+Log Message:
+Added uClibc 0.9.26
+
+
+
+
+
+From nobody at sheep.berlios.de  Sun Dec  5 13:13:48 2004
+From: nobody at sheep.berlios.de (xscript)
+Date: Sun, 5 Dec 2004 13:13:48 +0100
+Subject: [Linuxap-eh-cvs] linuxAP-eh/wl11000/patches/uClibc 0.9.26,NONE,1.1.2.1 snapshot,NONE,1.1.2.1
+Message-ID: <200412051213.iB5CDmB07728@bat.berlios.de>
+
+Update of /cvsroot/linuxap-eh/linuxAP-eh/wl11000/patches/uClibc
+In directory sheep:/tmp/cvs-serv30956
+
+Added Files:
+      Tag: TESTING
+	0.9.26 snapshot 
+Log Message:
+Added uClibc 0.9.26
+
+
+--- NEW FILE: 0.9.26 ---
+--- uClibc.old/.config	2004-08-14 17:18:59.000000000 +0200
++++ uClibc/.config	2004-08-22 17:26:51.000000000 +0200
+@@ -0,0 +1,144 @@
++#
++# Automatically generated make config: don't edit
++#
++# TARGET_alpha is not set
++# TARGET_arm is not set
++# TARGET_cris is not set
++# TARGET_e1 is not set
++# TARGET_h8300 is not set
++TARGET_i386=y
++# TARGET_i960 is not set
++# TARGET_m68k is not set
++# TARGET_microblaze is not set
++# TARGET_mips is not set
++# TARGET_powerpc is not set
++# TARGET_sh is not set
++# TARGET_sparc is not set
++# TARGET_v850 is not set
++
++#
++# Target Architecture Features and Options
++#
++HAVE_ELF=y
++TARGET_ARCH="i386"
++# CONFIG_GENERIC_386 is not set
++# CONFIG_386 is not set
++CONFIG_486=y
++# CONFIG_586 is not set
++# CONFIG_586MMX is not set
++# CONFIG_686 is not set
++# CONFIG_PENTIUMIII is not set
++# CONFIG_PENTIUM4 is not set
++# CONFIG_K6 is not set
++# CONFIG_K7 is not set
++# CONFIG_CRUSOE is not set
++# CONFIG_WINCHIPC6 is not set
++# CONFIG_WINCHIP2 is not set
++# CONFIG_CYRIXIII is not set
++ARCH_LITTLE_ENDIAN=y
++# ARCH_BIG_ENDIAN is not set
++# ARCH_HAS_NO_MMU is not set
++UCLIBC_HAS_MMU=y
++UCLIBC_HAS_FLOATS=y
++HAS_FPU=y
++# DO_C99_MATH is not set
++WARNINGS="-Wall"
++KERNEL_SOURCE="$(TOPDIR)/toolchain/gcc-$(CONFIG_TOOLCHAIN_GCC_VERSION)/toolchain_build_i386/linux"
++C_SYMBOL_PREFIX=""
++HAVE_DOT_CONFIG=y
++
++#
++# General Library Settings
++#
++# HAVE_NO_PIC is not set
++DOPIC=y
++# HAVE_NO_SHARED is not set
++HAVE_SHARED=y
++# ARCH_HAS_NO_LDSO is not set
++BUILD_UCLIBC_LDSO=y
++# UCLIBC_PIE_SUPPORT is not set
++LDSO_LDD_SUPPORT=y
++# UCLIBC_CTOR_DTOR is not set
++# UCLIBC_PROPOLICE is not set
++# UCLIBC_PROFILING is not set
++# HAS_NO_THREADS is not set
++# UCLIBC_HAS_THREADS is not set
++# UCLIBC_HAS_LFS is not set
++# MALLOC is not set
++# MALLOC_SIMPLE is not set
++MALLOC_STANDARD=y
++# MALLOC_GLIBC_COMPAT is not set
++# UCLIBC_DYNAMIC_ATEXIT is not set
++# HAS_SHADOW is not set
++# UNIX98PTY_ONLY is not set
++# ASSUME_DEVPTS is not set
++# UCLIBC_HAS_TM_EXTENSIONS is not set
++UCLIBC_HAS_TZ_CACHING=y
++UCLIBC_HAS_TZ_FILE=y
++UCLIBC_HAS_TZ_FILE_READ_MANY=y
++UCLIBC_TZ_FILE_PATH="/etc/TZ"
++
++#
++# Networking Support
++#
++# UCLIBC_HAS_IPV6 is not set
++# UCLIBC_HAS_RPC is not set
++
++#
++# String and Stdio Support
++#
++UCLIBC_HAS_CTYPE_TABLES=y
++UCLIBC_HAS_CTYPE_SIGNED=y
++UCLIBC_HAS_CTYPE_UNSAFE=y
++# UCLIBC_HAS_CTYPE_CHECKED is not set
++# UCLIBC_HAS_CTYPE_ENFORCED is not set
++# UCLIBC_HAS_WCHAR is not set
++# UCLIBC_HAS_LOCALE is not set
++# UCLIBC_HAS_HEXADECIMAL_FLOATS is not set
++# UCLIBC_HAS_GLIBC_CUSTOM_PRINTF is not set
++# USE_OLD_VFPRINTF is not set
++UCLIBC_PRINTF_SCANF_POSITIONAL_ARGS=9
++# UCLIBC_HAS_SCANF_GLIBC_A_FLAG is not set
++# UCLIBC_HAS_STDIO_BUFSIZ_NONE is not set
++UCLIBC_HAS_STDIO_BUFSIZ_256=y
++# UCLIBC_HAS_STDIO_BUFSIZ_512 is not set
++# UCLIBC_HAS_STDIO_BUFSIZ_1024 is not set
++# UCLIBC_HAS_STDIO_BUFSIZ_2048 is not set
++# UCLIBC_HAS_STDIO_BUFSIZ_4096 is not set
++# UCLIBC_HAS_STDIO_BUFSIZ_8192 is not set
++UCLIBC_HAS_STDIO_BUILTIN_BUFFER_NONE=y
++# UCLIBC_HAS_STDIO_BUILTIN_BUFFER_4 is not set
++# UCLIBC_HAS_STDIO_BUILTIN_BUFFER_8 is not set
++UCLIBC_HAS_STDIO_GETC_MACRO=y
++UCLIBC_HAS_STDIO_PUTC_MACRO=y
++UCLIBC_HAS_STDIO_AUTO_RW_TRANSITION=y
++# UCLIBC_HAS_FOPEN_EXCLUSIVE_MODE is not set
++# UCLIBC_HAS_GLIBC_CUSTOM_STREAMS is not set
++UCLIBC_HAS_PRINTF_M_SPEC=y
++# UCLIBC_HAS_ERRNO_MESSAGES is not set
++# UCLIBC_HAS_SIGNUM_MESSAGES is not set
++UCLIBC_HAS_GNU_GETOPT=y
++
++#
++# Big and Tall
++#
++UCLIBC_HAS_REGEX=y
++# UCLIBC_HAS_WORDEXP is not set
++# UCLIBC_HAS_FTW is not set
++UCLIBC_HAS_GLOB=y
++
++#
++# Library Installation Options
++#
++SHARED_LIB_LOADER_PREFIX="$(DEVEL_PREFIX)/lib"
++RUNTIME_PREFIX="/usr/$(TARGET_ARCH)-linux-uclibc"
++DEVEL_PREFIX="/usr/$(TARGET_ARCH)-linux-uclibc"
++
++#
++# uClibc development/debugging options
++#
++# DODEBUG is not set
++# DOASSERTS is not set
++# SUPPORT_LD_DEBUG is not set
++# SUPPORT_LD_DEBUG_EARLY is not set
++# UCLIBC_MJN3_ONLY is not set
+
+--- NEW FILE: snapshot ---
+--- uClibc.old/.config	2004-08-14 17:18:59.000000000 +0200
++++ uClibc/.config	2004-08-22 17:26:51.000000000 +0200
+@@ -0,0 +1,144 @@
++#
++# Automatically generated make config: don't edit
++#
++# TARGET_alpha is not set
++# TARGET_arm is not set
++# TARGET_cris is not set
++# TARGET_e1 is not set
++# TARGET_h8300 is not set
++TARGET_i386=y
++# TARGET_i960 is not set
++# TARGET_m68k is not set
++# TARGET_microblaze is not set
++# TARGET_mips is not set
++# TARGET_powerpc is not set
++# TARGET_sh is not set
++# TARGET_sparc is not set
++# TARGET_v850 is not set
++
++#
++# Target Architecture Features and Options
++#
++HAVE_ELF=y
++TARGET_ARCH="i386"
++# CONFIG_GENERIC_386 is not set
++# CONFIG_386 is not set
++CONFIG_486=y
++# CONFIG_586 is not set
++# CONFIG_586MMX is not set
++# CONFIG_686 is not set
++# CONFIG_PENTIUMIII is not set
++# CONFIG_PENTIUM4 is not set
++# CONFIG_K6 is not set
++# CONFIG_K7 is not set
++# CONFIG_CRUSOE is not set
++# CONFIG_WINCHIPC6 is not set
++# CONFIG_WINCHIP2 is not set
++# CONFIG_CYRIXIII is not set
++ARCH_LITTLE_ENDIAN=y
++# ARCH_BIG_ENDIAN is not set
++# ARCH_HAS_NO_MMU is not set
++UCLIBC_HAS_MMU=y
++UCLIBC_HAS_FLOATS=y
++HAS_FPU=y
++# DO_C99_MATH is not set
++WARNINGS="-Wall"
++KERNEL_SOURCE="$(TOPDIR)/toolchain/gcc-$(CONFIG_TOOLCHAIN_GCC_VERSION)/toolchain_build_i386/linux"
++C_SYMBOL_PREFIX=""
++HAVE_DOT_CONFIG=y
++
++#
++# General Library Settings
++#
++# HAVE_NO_PIC is not set
++DOPIC=y
++# HAVE_NO_SHARED is not set
++HAVE_SHARED=y
++# ARCH_HAS_NO_LDSO is not set
++BUILD_UCLIBC_LDSO=y
++# UCLIBC_PIE_SUPPORT is not set
++LDSO_LDD_SUPPORT=y
++# UCLIBC_CTOR_DTOR is not set
++# UCLIBC_PROPOLICE is not set
++# UCLIBC_PROFILING is not set
++# HAS_NO_THREADS is not set
++# UCLIBC_HAS_THREADS is not set
++# UCLIBC_HAS_LFS is not set
++# MALLOC is not set
++# MALLOC_SIMPLE is not set
++MALLOC_STANDARD=y
++# MALLOC_GLIBC_COMPAT is not set
++# UCLIBC_DYNAMIC_ATEXIT is not set
++# HAS_SHADOW is not set
++# UNIX98PTY_ONLY is not set
++# ASSUME_DEVPTS is not set
++# UCLIBC_HAS_TM_EXTENSIONS is not set
++UCLIBC_HAS_TZ_CACHING=y
++UCLIBC_HAS_TZ_FILE=y
++UCLIBC_HAS_TZ_FILE_READ_MANY=y
++UCLIBC_TZ_FILE_PATH="/etc/TZ"
++
++#
++# Networking Support
++#
++# UCLIBC_HAS_IPV6 is not set
++# UCLIBC_HAS_RPC is not set
++
++#
++# String and Stdio Support
++#
++UCLIBC_HAS_CTYPE_TABLES=y
++UCLIBC_HAS_CTYPE_SIGNED=y
++UCLIBC_HAS_CTYPE_UNSAFE=y
++# UCLIBC_HAS_CTYPE_CHECKED is not set
++# UCLIBC_HAS_CTYPE_ENFORCED is not set
++# UCLIBC_HAS_WCHAR is not set
++# UCLIBC_HAS_LOCALE is not set
++# UCLIBC_HAS_HEXADECIMAL_FLOATS is not set
++# UCLIBC_HAS_GLIBC_CUSTOM_PRINTF is not set
++# USE_OLD_VFPRINTF is not set
++UCLIBC_PRINTF_SCANF_POSITIONAL_ARGS=9
++# UCLIBC_HAS_SCANF_GLIBC_A_FLAG is not set
++# UCLIBC_HAS_STDIO_BUFSIZ_NONE is not set
++UCLIBC_HAS_STDIO_BUFSIZ_256=y
++# UCLIBC_HAS_STDIO_BUFSIZ_512 is not set
++# UCLIBC_HAS_STDIO_BUFSIZ_1024 is not set
++# UCLIBC_HAS_STDIO_BUFSIZ_2048 is not set
++# UCLIBC_HAS_STDIO_BUFSIZ_4096 is not set
++# UCLIBC_HAS_STDIO_BUFSIZ_8192 is not set
++UCLIBC_HAS_STDIO_BUILTIN_BUFFER_NONE=y
++# UCLIBC_HAS_STDIO_BUILTIN_BUFFER_4 is not set
++# UCLIBC_HAS_STDIO_BUILTIN_BUFFER_8 is not set
++UCLIBC_HAS_STDIO_GETC_MACRO=y
++UCLIBC_HAS_STDIO_PUTC_MACRO=y
++UCLIBC_HAS_STDIO_AUTO_RW_TRANSITION=y
++# UCLIBC_HAS_FOPEN_EXCLUSIVE_MODE is not set
++# UCLIBC_HAS_GLIBC_CUSTOM_STREAMS is not set
++UCLIBC_HAS_PRINTF_M_SPEC=y
++# UCLIBC_HAS_ERRNO_MESSAGES is not set
++# UCLIBC_HAS_SIGNUM_MESSAGES is not set
++UCLIBC_HAS_GNU_GETOPT=y
++
++#
++# Big and Tall
++#
++UCLIBC_HAS_REGEX=y
++# UCLIBC_HAS_WORDEXP is not set
++# UCLIBC_HAS_FTW is not set
++UCLIBC_HAS_GLOB=y
++
++#
++# Library Installation Options
++#
++SHARED_LIB_LOADER_PREFIX="$(DEVEL_PREFIX)/lib"
++RUNTIME_PREFIX="/usr/$(TARGET_ARCH)-linux-uclibc"
++DEVEL_PREFIX="/usr/$(TARGET_ARCH)-linux-uclibc"
++
++#
++# uClibc development/debugging options
++#
++# DODEBUG is not set
++# DOASSERTS is not set
++# SUPPORT_LD_DEBUG is not set
++# SUPPORT_LD_DEBUG_EARLY is not set
++# UCLIBC_MJN3_ONLY is not set
+
+
+
+From nobody at sheep.berlios.de  Sun Dec  5 13:20:03 2004
+From: nobody at sheep.berlios.de (xscript)
+Date: Sun, 5 Dec 2004 13:20:03 +0100
+Subject: [Linuxap-eh-cvs] linuxAP-eh config.in,1.30.2.1,1.30.2.2
+Message-ID: <200412051220.iB5CK3B07883@bat.berlios.de>
+
+Update of /cvsroot/linuxap-eh/linuxAP-eh
+In directory sheep:/tmp/cvs-serv31173
+
+Modified Files:
+      Tag: TESTING
+	config.in 
+Log Message:
+Added uClibc 0.9.26
+
+
+Index: config.in
+===================================================================
+RCS file: /cvsroot/linuxap-eh/linuxAP-eh/config.in,v
+retrieving revision 1.30.2.1
+retrieving revision 1.30.2.2
+diff -C2 -d -r1.30.2.1 -r1.30.2.2
+*** config.in	1 Dec 2004 00:35:50 -0000	1.30.2.1
+--- config.in	5 Dec 2004 12:20:01 -0000	1.30.2.2
+***************
+*** 29,33 ****
+  define_ustring SYSVINIT_VERSION     2.83
+  define_ustring TINYLOGIN_VERSION    1.4
+! define_ustring UCLIBC_VERSION       0.9.21
+  define_ustring UDHCP_VERSION        0.9.8
+  define_ustring UMSDOS_VERSION       1.32
+--- 29,33 ----
+  define_ustring SYSVINIT_VERSION     2.83
+  define_ustring TINYLOGIN_VERSION    1.4
+! #define_ustring UCLIBC_VERSION       0.9.26
+  define_ustring UDHCP_VERSION        0.9.8
+  define_ustring UMSDOS_VERSION       1.32
+***************
+*** 99,102 ****
+--- 99,119 ----
+  
+  ustring "Kernel Version" KERNEL_VERSION "2.4.20"
++ 
++ if [ "$CONFIG_UCLIBC" = "y" ]; then
++    bool "Use Latest uClibc Snapshot" CONFIG_TOOLCHAIN_UCLIBC_SNAPSHOT
++    if [ "$CONFIG_TOOLCHAIN_UCLIBC_SNAPSHOT" = "n" ]; then
++       ustring "uClibc Version" UCLIBC_VERSION "0.9.26"
++    else
++       define_ustring UCLIBC_VERSION "snapshot"
++    fi
++    if [ "$UCLIBC_VERSION" = "snapshot" -o \
++        "`./scripts/cmp_ver $UCLIBC_VERSION 0.9.22`" != "1" ]; then
++       bool " Delete toolchain build environment sources after compilation (saves about 550MB)" CONFIG_TOOLCHAIN_SAVE
++       choice "Gcc version for build environment" \
++          "2.95 CONFIG_TOOLCHAIN_GCC_295
++          3.3.x CONFIG_TOOLCHAIN_GCC_33x
++          3.4.x CONFIG_TOOLCHAIN_GCC_34x"
++    fi
++ fi
+  
+  
+
+
+
+From nobody at sheep.berlios.de  Sun Dec  5 13:21:51 2004
+From: nobody at sheep.berlios.de (xscript)
+Date: Sun, 5 Dec 2004 13:21:51 +0100
+Subject: [Linuxap-eh-cvs] linuxAP-eh ChangeLog.eh,1.44.2.1,1.44.2.2
+Message-ID: <200412051221.iB5CLpB07920@bat.berlios.de>
+
+Update of /cvsroot/linuxap-eh/linuxAP-eh
+In directory sheep:/tmp/cvs-serv31355
+
+Modified Files:
+      Tag: TESTING
+	ChangeLog.eh 
+Log Message:
+Added uClibc 0.9.26
+
+
+Index: ChangeLog.eh
+===================================================================
+RCS file: /cvsroot/linuxap-eh/linuxAP-eh/ChangeLog.eh,v
+retrieving revision 1.44.2.1
+retrieving revision 1.44.2.2
+diff -C2 -d -r1.44.2.1 -r1.44.2.2
+*** ChangeLog.eh	5 Dec 2004 12:02:40 -0000	1.44.2.1
+--- ChangeLog.eh	5 Dec 2004 12:21:49 -0000	1.44.2.2
+***************
+*** 1,3 ****
+--- 1,4 ----
+  05-12-2004
++   * Added uClibc 0.9.26
+    * Added uClibc's new toolchain support
+  
+
+
+
+From nobody at sheep.berlios.de  Mon Dec  6 15:38:09 2004
+From: nobody at sheep.berlios.de (xscript)
+Date: Mon, 6 Dec 2004 15:38:09 +0100
+Subject: [Linuxap-eh-cvs] linuxAP-eh Makefile.defs,1.6,1.6.2.1
+Message-ID: <200412061438.iB6Ec9B08782@bat.berlios.de>
+
+Update of /cvsroot/linuxap-eh/linuxAP-eh
+In directory sheep:/tmp/cvs-serv3985
+
+Modified Files:
+      Tag: TESTING
+	Makefile.defs 
+Log Message:
+Added uClibc 0.9.26
+
+
+Index: Makefile.defs
+===================================================================
+RCS file: /cvsroot/linuxap-eh/linuxAP-eh/Makefile.defs,v
+retrieving revision 1.6
+retrieving revision 1.6.2.1
+diff -C2 -d -r1.6 -r1.6.2.1
+*** Makefile.defs	7 Nov 2004 21:20:13 -0000	1.6
+--- Makefile.defs	6 Dec 2004 14:38:07 -0000	1.6.2.1
+***************
+*** 7,10 ****
+--- 7,11 ----
+  
+  ifeq ($(CONFIG_UCLIBC),y)
++   ifeq ($(shell ./scripts/cmp_ver $(UCLIBC_VERSION) 0.9.22),1)
+      CROSSDIR:=/usr/i386-linux-uclibc
+      LIBDIR:=/usr/i386-linux-uclibc/lib
+***************
+*** 20,23 ****
+--- 21,41 ----
+        endif
+      endif
++ 
++   else
++     CROSSDIR:=$(TOPDIR)/toolchain/gcc-$(TOOLCHAIN_GCC_VERSION)/toolchain_i386
++     LIBDIR:=$(CROSSDIR)/lib
++     ifeq ($(CONFIG_DISTCC),y)
++       CROSS_COMPILE:=i386-linux-uclibc-
++       PATH:=$(CROSSDIR)/bin:$(PATH)
++     else
++       ifeq ($(CONFIG_CCACHE),y)
++         CROSS_COMPILE:=i386-linux-uclibc-
++ 	# avoid using toolchain's ccache
++ 	PATH:=$(CROSSDIR)/bin-ccache:$(CROSSDIR)/bin:$(PATH)
++       else
++         CROSS_COMPILE:=$(CROSSDIR)/bin/i386-linux-uclibc-
++       endif
++     endif
++   endif
+  else
+    LIBDIR:=/lib
+
+
+
+From nobody at sheep.berlios.de  Mon Dec 13 01:16:28 2004
+From: nobody at sheep.berlios.de (xscript)
+Date: Mon, 13 Dec 2004 01:16:28 +0100
+Subject: [Linuxap-eh-cvs] web index.html,1.1.1.1,NONE kleynjans,1.1.1.1,NONE logo.xcf,1.1.1.1,NONE
+Message-ID: <200412130016.iBD0GSB20106@bat.berlios.de>
+
+Update of /cvsroot/linuxap-eh/web
+In directory sheep:/tmp/cvs-serv12176
+
+Removed Files:
+	index.html kleynjans logo.xcf 
+Log Message:
+Minor fixes
+
+--- index.html DELETED ---
+
+--- kleynjans DELETED ---
+
+--- logo.xcf DELETED ---
+
+
+
+From nobody at sheep.berlios.de  Mon Dec 13 01:16:28 2004
+From: nobody at sheep.berlios.de (xscript)
+Date: Mon, 13 Dec 2004 01:16:28 +0100
+Subject: [Linuxap-eh-cvs] web/Images logo.xcf,NONE,1.1
+Message-ID: <200412130016.iBD0GSB20110@bat.berlios.de>
+
+Update of /cvsroot/linuxap-eh/web/Images
+In directory sheep:/tmp/cvs-serv12176/Images
+
+Added Files:
+	logo.xcf 
+Log Message:
+Minor fixes
+
+--- NEW FILE: logo.xcf ---
+(This appears to be a binary file; contents omitted.)
+
+
+
+From nobody at sheep.berlios.de  Tue Dec 14 01:10:09 2004
+From: nobody at sheep.berlios.de (xscript)
+Date: Tue, 14 Dec 2004 01:10:09 +0100
+Subject: [Linuxap-eh-cvs] web/Contents - New directory
+Message-ID: <200412140010.iBE0A9B20992@bat.berlios.de>
+
+Update of /cvsroot/linuxap-eh/web/Contents
+In directory sheep:/tmp/cvs-serv7673/Contents
+
+Log Message:
+Directory /cvsroot/linuxap-eh/web/Contents added to the repository
+
+
+
+
+From nobody at sheep.berlios.de  Tue Dec 14 01:11:28 2004
+From: nobody at sheep.berlios.de (xscript)
+Date: Tue, 14 Dec 2004 01:11:28 +0100
+Subject: [Linuxap-eh-cvs] web/Contents docs.php,NONE,1.1 download.php,NONE,1.1 home.php,NONE,1.1 links.php,NONE,1.1
+Message-ID: <200412140011.iBE0BSB21026@bat.berlios.de>
+
+Update of /cvsroot/linuxap-eh/web/Contents
+In directory sheep:/tmp/cvs-serv7839/Contents
+
+Added Files:
+	docs.php download.php home.php links.php 
+Log Message:
+Update the web page
+
+--- NEW FILE: docs.php ---
+docs (please populate this page)
+
+--- NEW FILE: download.php ---
+download (please populate this page)
+
+--- NEW FILE: home.php ---
+Linuxap-eh is a small Linux distro (1MB) that can be installed into several
+wireless access points: US Robotics 2450, SMC 2652W and Addtron AWS-100. It
+can use aodv, openvpn, web admin, telnet with passwd, and much more in the
+future.
+
+--- NEW FILE: links.php ---
+Here are some links of interest to some resources and projects of our own or
+from others:
+
+<ul>
+
+    <li>Our own resources and links:</li>
+    <ul>
+	<li><a href="http://developer.berlios.de/projects/linuxap-eh">Project page in BerliOS</a></li>
+    </ul>
+
+    <p>
+    <li>Foreign resources and links:</li>
+    <ul>
+	<li><a href="http://linuxap.ksmith.com/">Original LinuxAP project</a></li>
+    </ul>
+
+</ul>
+
+
+
+From nobody at sheep.berlios.de  Tue Dec 14 01:11:30 2004
+From: nobody at sheep.berlios.de (xscript)
+Date: Tue, 14 Dec 2004 01:11:30 +0100
+Subject: [Linuxap-eh-cvs] web/Images docs-ligth.png,1.1.1.1,1.2 docs.png,1.1.1.1,1.2 download-ligth.png,1.1.1.1,1.2 download.png,1.1.1.1,1.2 home-ligth.png,1.1.1.1,1.2 home.png,1.1.1.1,1.2 links-ligth.png,1.1.1.1,1.2 links.png,1.1.1.1,1.2 logo.xcf,1.1,1.2
+Message-ID: <200412140011.iBE0BTB21030@bat.berlios.de>
+
+Update of /cvsroot/linuxap-eh/web/Images
+In directory sheep:/tmp/cvs-serv7839/Images
+
+Modified Files:
+	docs-ligth.png docs.png download-ligth.png download.png 
+	home-ligth.png home.png links-ligth.png links.png logo.xcf 
+Log Message:
+Update the web page
+
+Index: docs-ligth.png
+===================================================================
+RCS file: /cvsroot/linuxap-eh/web/Images/docs-ligth.png,v
+retrieving revision 1.1.1.1
+retrieving revision 1.2
+diff -C2 -d -r1.1.1.1 -r1.2
+Binary files /tmp/cvs.UREXtj and /tmp/cvs.sSK85u differ
+
+Index: docs.png
+===================================================================
+RCS file: /cvsroot/linuxap-eh/web/Images/docs.png,v
+retrieving revision 1.1.1.1
+retrieving revision 1.2
+diff -C2 -d -r1.1.1.1 -r1.2
+Binary files /tmp/cvs.bNwnNo and /tmp/cvs.CoqgsA differ
+
+Index: download-ligth.png
+===================================================================
+RCS file: /cvsroot/linuxap-eh/web/Images/download-ligth.png,v
+retrieving revision 1.1.1.1
+retrieving revision 1.2
+diff -C2 -d -r1.1.1.1 -r1.2
+Binary files /tmp/cvs.14jHin and /tmp/cvs.bMlnYy differ
+
+Index: download.png
+===================================================================
+RCS file: /cvsroot/linuxap-eh/web/Images/download.png,v
+retrieving revision 1.1.1.1
+retrieving revision 1.2
+diff -C2 -d -r1.1.1.1 -r1.2
+Binary files /tmp/cvs.FSLV5n and /tmp/cvs.P8ToMz differ
+
+Index: home-ligth.png
+===================================================================
+RCS file: /cvsroot/linuxap-eh/web/Images/home-ligth.png,v
+retrieving revision 1.1.1.1
+retrieving revision 1.2
+diff -C2 -d -r1.1.1.1 -r1.2
+Binary files /tmp/cvs.TXe0hr and /tmp/cvs.novgZC differ
+
+Index: home.png
+===================================================================
+RCS file: /cvsroot/linuxap-eh/web/Images/home.png,v
+retrieving revision 1.1.1.1
+retrieving revision 1.2
+diff -C2 -d -r1.1.1.1 -r1.2
+Binary files /tmp/cvs.gNMNNp and /tmp/cvs.RzZQvB differ
+
+Index: links-ligth.png
+===================================================================
+RCS file: /cvsroot/linuxap-eh/web/Images/links-ligth.png,v
+retrieving revision 1.1.1.1
+retrieving revision 1.2
+diff -C2 -d -r1.1.1.1 -r1.2
+Binary files /tmp/cvs.hPiJ7s and /tmp/cvs.kKvFQE differ
+
+Index: links.png
+===================================================================
+RCS file: /cvsroot/linuxap-eh/web/Images/links.png,v
+retrieving revision 1.1.1.1
+retrieving revision 1.2
+diff -C2 -d -r1.1.1.1 -r1.2
+Binary files /tmp/cvs.JcLuYt and /tmp/cvs.tJ6eIF differ
+
+Index: logo.xcf
+===================================================================
+RCS file: /cvsroot/linuxap-eh/web/Images/logo.xcf,v
+retrieving revision 1.1
+retrieving revision 1.2
+diff -C2 -d -r1.1 -r1.2
+Binary files /tmp/cvs.ISJqus and /tmp/cvs.HYhZeE differ
+
+
+
+From nobody at sheep.berlios.de  Tue Dec 14 01:11:57 2004
+From: nobody at sheep.berlios.de (xscript)
+Date: Tue, 14 Dec 2004 01:11:57 +0100
+Subject: [Linuxap-eh-cvs] web footer.html,NONE,1.1 linuxAP-eh.css,NONE,1.1 index.php,1.1.1.2,1.2 menu.db,1.1.1.1,1.2 menuitem.php,1.1.1.1,1.2
+Message-ID: <200412140011.iBE0BvB21034@bat.berlios.de>
+
+Update of /cvsroot/linuxap-eh/web
+In directory sheep:/tmp/cvs-serv7839
+
+Modified Files:
+	index.php menu.db menuitem.php 
+Added Files:
+	footer.html linuxAP-eh.css 
+Log Message:
+Update the web page
+
+--- NEW FILE: footer.html ---
+<tr><td>&nbsp;</td></tr>
+<tr>
+    <td> <a href="http://developer.berlios.de">
+	    <img src="http://developer.berlios.de/bslogo.php?group_id=0&type=1"
+	    width="124" height="32" alt="BerliOS Logo">
+    </a> </td>
+
+    <td> <a href="http://www.vim.org">
+	    <img src="http://www.vim.org/images/vim_created_blue.gif"
+	    alt="Created with Vim">
+    </a> </td>
+</tr>
+
+--- NEW FILE: linuxAP-eh.css ---
+BODY
+{
+    background-color: #5588f6;
+}
+
+IMG
+{
+    border: 0;
+}
+
+#logo
+{
+    vertical-align: center;
+}
+
+#title
+{
+    background-color: #533fba;
+    text-align: center;
+    vertical-align: center;
+}
+
+#menu
+{
+    text-align: left;
+    vertical-align: top;
+}
+
+#contents
+{
+    vertical-align: top;
+}
+
+#footer
+{
+    text-align: left;
+    vertical-align: center;
+}
+
+
+Index: index.php
+===================================================================
+RCS file: /cvsroot/linuxap-eh/web/index.php,v
+retrieving revision 1.1.1.2
+retrieving revision 1.2
+diff -C2 -d -r1.1.1.2 -r1.2
+*** index.php	2 Oct 2003 14:04:18 -0000	1.1.1.2
+--- index.php	14 Dec 2004 00:11:23 -0000	1.2
+***************
+*** 1,37 ****
+! <? include 'DAO.php'; 
+! if (!$_GET["section"]) {
+  	$_GET["section"]="home";
+! }
+  ?>
+  <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+  <html>
+! <head>
+!   <title>LinuxAP-eh</title>
+!   <meta name="GENERATOR" content="Quanta Plus">
+! </head>
+! <body bgcolor="#5588f6">
+! <table cellspacing="30">
+!   <tbody>
+!   <tr>
+!   <td valign="center"><img src="Images/logo.png"></td>
+!   <td align="center" bgcolor="#533fba"><img src='Images/<?=$_GET["section"]?>-ligth.png'></td>
+!   </tr>
+! 	<tr>
+!       <td> <table>
+!   <tbody align="center">
+!    
+! 		   		<?php 
+! 		   		$menu = getMenu();
+! foreach ($menu as $item) {
+  	include ("menuitem.php");
+! }
+  ?>
+!    
+!    </tbody>
+! </table> </td>
+!       <td valign="top">This is the preliminary layout for the linuxAP-eh page in BerliOS</td>
+!     </tr>
+!   </tbody>
+! </table>
+! </body>
+  </html>
+--- 1,71 ----
+! <?php
+!     include 'DAO.php'; 
+!     if (!$_GET["section"]) {
+  	$_GET["section"]="home";
+!     }
+  ?>
++ 
+  <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+  <html>
+! 
+!     <head>
+! 	<title>LinuxAP-eh</title>
+! 	<meta name="author" content="Lluis Vilanova" >
+! 	<meta name="generator" content="vim 6.3.13" >
+! 	<meta name="description" content="Homepage for the LinuxAP-eh and OpenWRT-eh projects" >
+! 	<meta name="keywords" content="LinuxAP LinuxAP-eh linuxap linuxap-eh OpenWRT OpenWRT-eh EnHanced enhanced openwrt openwrt-eh wireless linux access point ap AP" >
+! 	<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1" >
+! 	<meta http-equiv="Content-Script-Type" content="text/javascript" >
+! 	<meta http-equiv="Content-Style-Type" content="text/css" >
+! 	<link rel="stylesheet" type="text/css" href="./linuxAP-eh.css" >
+!     </head>
+! 
+!     <body>
+! 	<table cellspacing=30>
+! 	    <tfoot>
+! 	        <tr>
+! 		    <td> </td>
+! 		    <td> <table if="footer">
+! <!-- START FOOTER -->
+! <?php
+!     include("./footer.html");
+! ?>
+! <!-- END FOOTER -->
+! 		    </table> </td>
+! 		</tr>
+! 	    </tfoot>
+! 	    <tbody>
+! 		<tr>
+! <!-- START HEADER -->
+! 		    <td id="logo"><img src="./Images/logo.png" alt="linuxAP-eh"></td>
+! 		    <td id="title"><img src='Images/<?=$_GET["section"]?>-ligth.png' alt='<?=$_GET["section"]?>'></td>
+! <!-- START HEADER -->
+! 		</tr>
+! 		<tr>
+! 		    <td>
+! 			<table>
+! 			    <tbody id="menu">
+! <!-- START MENU -->
+! <?php 
+!     $menu = getMenu();
+!     foreach ($menu as $item) {
+  	include ("menuitem.php");
+!     }
+  ?>
+! <!-- END MENU -->
+! 			    </tbody>
+! 			</table>
+! 		    </td>
+! 		    <td id="contents">
+! <!-- START CONTENTS -->
+! <?php
+!     include("./Contents/" . $_GET["section"] . ".php");
+! ?>
+! <!-- END CONTENTS -->
+! 		    </td>
+! 		</tr>
+! 	    </tbody>
+! 	</table>
+!     </body>
+! 
+  </html>
+
+Index: menu.db
+===================================================================
+RCS file: /cvsroot/linuxap-eh/web/menu.db,v
+retrieving revision 1.1.1.1
+retrieving revision 1.2
+diff -C2 -d -r1.1.1.1 -r1.2
+*** menu.db	2 Oct 2003 14:04:18 -0000	1.1.1.1
+--- menu.db	14 Dec 2004 00:11:24 -0000	1.2
+***************
+*** 2,4 ****
+  docs
+  download
+! links
+\ No newline at end of file
+--- 2,4 ----
+  docs
+  download
+! links
+
+Index: menuitem.php
+===================================================================
+RCS file: /cvsroot/linuxap-eh/web/menuitem.php,v
+retrieving revision 1.1.1.1
+retrieving revision 1.2
+diff -C2 -d -r1.1.1.1 -r1.2
+*** menuitem.php	2 Oct 2003 14:04:18 -0000	1.1.1.1
+--- menuitem.php	14 Dec 2004 00:11:24 -0000	1.2
+***************
+*** 1,3 ****
+!  <tr align="left">
+!        <td ><a href='index.php?section=<?=$item?>'> <img src='Images/<?=$item?>.png'></a> </td>
+!  </tr>
+\ No newline at end of file
+--- 1,5 ----
+! <tr> <td>
+!     <a href='index.php?section=<?=$item?>'>
+!         <img src='Images/<?=$item?>.png' alt='<?=$item?>'>
+!     </a>
+! </td> </tr>
+
+
+

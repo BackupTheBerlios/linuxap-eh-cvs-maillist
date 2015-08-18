@@ -1,0 +1,158 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Linuxap-eh-cvs] linuxAP-eh/Mk toolchain.mk,NONE,1.1.2.1
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/linuxap-eh-cvs/2004-December/index.html" >
+   <LINK REL="made" HREF="mailto:linuxap-eh-cvs%40lists.berlios.de?Subject=Re%3A%20%5BLinuxap-eh-cvs%5D%20linuxAP-eh/Mk%20toolchain.mk%2CNONE%2C1.1.2.1&In-Reply-To=%3C200411302359.iAUNxwB02194%40bat.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   
+   <LINK REL="Next"  HREF="000004.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Linuxap-eh-cvs] linuxAP-eh/Mk toolchain.mk,NONE,1.1.2.1</H1>
+    <B>xscript</B> 
+    <A HREF="mailto:linuxap-eh-cvs%40lists.berlios.de?Subject=Re%3A%20%5BLinuxap-eh-cvs%5D%20linuxAP-eh/Mk%20toolchain.mk%2CNONE%2C1.1.2.1&In-Reply-To=%3C200411302359.iAUNxwB02194%40bat.berlios.de%3E"
+       TITLE="[Linuxap-eh-cvs] linuxAP-eh/Mk toolchain.mk,NONE,1.1.2.1">nobody at sheep.berlios.de
+       </A><BR>
+    <I>Wed Dec  1 00:59:58 CET 2004</I>
+    <P><UL>
+        
+        <LI>Next message: <A HREF="000004.html">[Linuxap-eh-cvs] linuxAP-eh config.in,1.30,1.30.2.1 Makefile,1.12,1.12.2.1
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3">[ date ]</a>
+              <a href="thread.html#3">[ thread ]</a>
+              <a href="subject.html#3">[ subject ]</a>
+              <a href="author.html#3">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Update of /cvsroot/linuxap-eh/linuxAP-eh/Mk
+In directory sheep:/tmp/cvs-serv10144
+
+Added Files:
+      Tag: TESTING
+	toolchain.mk 
+Log Message:
+Added uClibc's new toolchain support
+
+--- NEW FILE: toolchain.mk ---
+#----------------------------------------------------------------------
+# uClibc toolchain
+#----------------------------------------------------------------------
+
+# Must happen first
+#SUBDIR_CONFIG += toolchain-config
+#SUBDIR_BUILD += toolchain-build
+#SUBDIR_INSTALL += toolchain-install
+SUBDIR_CLEAN += toolchain-clean
+SUBDIR_DISTCLEAN += toolchain-distclean
+
+ifeq ($(CONFIG_TOOLCHAIN_UCLIBC_SNAPSHOT),y)
+OPTS_TOOLCHAIN=USE_UCLIBC_SNAPSHOT=true
+else
+OPTS_TOOLCHAIN=USE_UCLIBC_SNAPSHOT=false UCLIBC_SOURCE=uClibc-$(UCLIBC_VERSION).tar.bz2 UCLIBC_DIR=toolchain_build_i386/uClibc-$(UCLIBC_VERSION) 
+endif
+ifneq ($(shell ./scripts/cmp_ver $(KERNEL_VERSION) 2.6.0),1)
+OPTS_TOOLCHAIN+=LINUX_SITE=<A HREF="http://ep09.pld-linux.org/~mmazur/linux-libc-headers/">http://ep09.pld-linux.org/~mmazur/linux-libc-headers/</A> LINUX_SOURCE=linux-libc-headers-$(KERNEL_VERSION).0.tar.bz2 LINUX_UNPACK_DIR=toolchain_build_i386/linux-libc-headers-$(KERNEL_VERSION).0
+endif
+
+toolchain-update:
+	@echo -e &quot;\nUpdating uClibc toolchain from CVS ...&quot;
+	@(cd toolchain/gcc-$(TOOLCHAIN_GCC_VERSION) &amp;&amp; cvs -q up)
+
+toolchain/gcc-$(TOOLCHAIN_GCC_VERSION):
+	@echo -e &quot;\nDownloading uClibc toolchain ($(TOOLCHAIN_GCC_VERSION)) from CVS ...&quot;
+	@echo &quot;(press ENTER on password prompt)&quot;
+	@cvs -q -d:pserver:<A HREF="https://lists.berlios.de/mailman/listinfo/linuxap-eh-cvs">anonymous at uclibc.org</A>:/var/cvs login
+	@cvs -z3 -q -d:pserver:<A HREF="https://lists.berlios.de/mailman/listinfo/linuxap-eh-cvs">anonymous at uclibc.org</A>:/var/cvs co -P toolchain/gcc-$(TOOLCHAIN_GCC_VERSION) \
+		&gt; /tmp/toolchain-download
+	@(cd toolchain ; patch -p 1 &lt; $(TOPDIR)/patches/toolchain/gcc-$(TOOLCHAIN_GCC_VERSION)) \
+		&gt;&gt; /tmp/toolchain-download 2&gt;&amp;1
+	@mv /tmp/toolchain-download .
+
+toolchain-download: toolchain/gcc-$(TOOLCHAIN_GCC_VERSION)
+	
+toolchain-config: toolchain-download
+	@echo -e &quot;\nConfiguring and patching uClibc toolchain&quot;
+	@(cd /tmp ; patch -p 1 &lt; $(TOPDIR)/$(AP_BUILD)/patches/uClibc/$(UCLIBC_VERSION)) \
+		&gt; /tmp/toolchain-config 2&gt;&amp;1
+	@mv -f /tmp/.config toolchain/gcc-$(TOOLCHAIN_GCC_VERSION)/sources/uClibc.config \
+		&gt;&gt; /tmp/toolchain-config 2&gt;&amp;1
+	@ln -sf $(TOPDIR)/tarfiles toolchain/gcc-$(TOOLCHAIN_GCC_VERSION)/sources/dl \
+		&gt;&gt; /tmp/toolchain-config 2&gt;&amp;1
+	@mv /tmp/toolchain-config .
+
+toolchain-build: toolchain-config
+	@echo -e &quot;\nBuilding uClibc toolchain ($(TOOLCHAIN_GCC_VERSION)). Please be patient ...&quot;
+ifeq ($(UCLIBC_VERSION),snapshot)
+	@echo &quot;  Look toolchain build output to check if new options for uClibc are available&quot;
+	@echo &quot;  (tail -f /tmp/toolchain-build)&quot;
+endif
+	@$(MAKE_NOJ) -C toolchain/gcc-$(TOOLCHAIN_GCC_VERSION) \
+		$(OPTS_TOOLCHAIN) \
+		MASQ_PATH=$(MASQ_PATH) \
+		BUILD_WITH_LARGEFILE=false \
+		GCC_USE_SJLJ_EXCEPTIONS=&quot;&quot; \
+		MULTILIB=&quot;&quot; \
+		INSTALL_LIBSTDCPP=false \
+		&gt; /tmp/toolchain-build 2&gt;&amp;1
+	@mv /tmp/toolchain-build .
+
+toolchain-install: toolchain-build
+	@echo -e &quot;\nInstalling uClibc toolchain ...&quot;
+	@touch /tmp/toolchain-install
+ifeq ($(CONFIG_TOOLCHAIN_SAVE),y)
+	@echo &quot;Saving cross compiling environment&quot;
+	@mv $(CROSSDIR) $(CROSSDIR)-bak &gt; /tmp/toolchain-install 2&gt;&amp;1
+	@$(MAKE) -C toolchain/gcc-$(TOOLCHAIN_GCC_VERSION) distclean &gt;&gt; /tmp/toolchain-install 2&gt;&amp;1
+	@echo &quot;Restoring cross compiling environment&quot;
+	@mv $(CROSSDIR)-bak $(CROSSDIR) &gt;&gt; /tmp/toolchain-install 2&gt;&amp;1
+	@mkdir -p toolchain/gcc-$(TOOLCHAIN_GCC_VERSION)/toolchain_build_i386/ccache-2.3
+endif
+	@mv /tmp/toolchain-install .
+	
+toolchain-clean:
+	@echo -e &quot;\nCleaning uClibc toolchain ...&quot;
+	@rm -f toolchain-install
+	@rm -f toolchain-build
+	@-$(MAKE) -C toolchain/gcc-$(TOOLCHAIN_GCC_VERSION) clean &gt; /dev/null 2&gt;&amp;1
+
+toolchain-distclean:
+	@echo -e &quot;\nPurging uClibc toolchain ...&quot;
+	@rm -f toolchain-install
+	@rm -f toolchain-build
+	@rm -f toolchain-config toolchain-download
+	@rm -rf toolchain
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	
+	<LI>Next message: <A HREF="000004.html">[Linuxap-eh-cvs] linuxAP-eh config.in,1.30,1.30.2.1 Makefile,1.12,1.12.2.1
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3">[ date ]</a>
+              <a href="thread.html#3">[ thread ]</a>
+              <a href="subject.html#3">[ subject ]</a>
+              <a href="author.html#3">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/linuxap-eh-cvs">More information about the Linuxap-eh-cvs
+mailing list</a><br>
+</body></html>
